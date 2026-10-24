@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>뉴스클립 — 나만의 뉴스클리핑</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <main class="container">
+    <header class="page-header">
+      <span class="eyebrow">MY NEWS COLLECTION</span>
+      <h1>뉴스클립<span>핑</span></h1>
+      <p>관심 있는 소식을 한곳에 모아 살펴보세요.</p>
+    </header>
+
+    <section class="panel" aria-labelledby="search-heading">
+      <h2 id="search-heading">어떤 뉴스를 찾고 있나요?</h2>
+      <p class="description">기간과 키워드로 실제 뉴스 기사를 검색하세요.</p>
+      <form id="search-form">
+        <div class="field provider-field">
+          <label for="provider">뉴스 검색 서비스</label>
+          <input id="provider" value="Google News RSS · 한국어 뉴스 검색" readonly>
+          <small>API 키 없이 검색합니다. 요약과 의견은 RSS 제목·설명 범위에서만 처리합니다.</small>
+        </div>
+        <div class="field-grid">
+          <fieldset class="date-field">
+            <legend>뉴스클리핑 기간</legend>
+            <div class="date-range">
+              <label class="sr-only" for="start-date">시작일</label>
+              <input type="date" id="start-date" required>
+              <span aria-hidden="true">—</span>
+              <label class="sr-only" for="end-date">종료일</label>
+              <input type="date" id="end-date" required>
+            </div>
+          </fieldset>
+          <div class="field">
+            <label for="keyword">관심 키워드</label>
+            <input type="search" id="keyword" placeholder="예: 인공지능, 환경, 경제" required maxlength="150">
+          </div>
+        </div>
+        <div class="form-footer">
+          <p>키워드는 쉼표로 구분해 최대 3개까지 입력할 수 있습니다.</p>
+          <div class="actions">
+            <button type="button" class="button secondary" id="reset-button">초기화</button>
+            <button type="submit" class="button primary">기사 검색 <span aria-hidden="true">↗</span></button>
+          </div>
+        </div>
+        <p id="form-error" class="error" role="alert"></p>
+      </form>
+    </section>
+
+    <section class="results" aria-labelledby="results-heading">
+      <div class="results-header">
+        <div><span class="eyebrow">YOUR CLIPPINGS</span><h2 id="results-heading">검색 결과 <span id="result-count">0</span></h2></div>
+        <div class="result-actions">
+        <button type="button" id="export-button" class="button secondary" disabled>엑셀 다운로드</button>
+        <label class="sentiment-filter" for="sentiment-filter">의견 필터
+          <select id="sentiment-filter">
+            <option value="all">전체 의견</option>
+            <option value="긍정">긍정</option>
+            <option value="중립">중립</option>
+            <option value="부정">부정</option>
+          </select>
+        </label>
+        </div>
+      </div>
+      <p class="demo-notice">Google News RSS 검색 · 날짜는 한국 시간 기준입니다. 의견은 제목·발췌문에 포함된 단어로 추정하며 오분류될 수 있습니다.</p>
+      <p class="export-help">엑셀에는 현재 의견 필터로 표시된 검색 결과가 저장됩니다.</p>
+      <p id="search-details" class="search-details"></p>
+      <p id="result-status" role="status" aria-live="polite"></p>
+      <ul id="article-list" class="article-list"></ul>
+      <div id="empty-state" class="empty-state" hidden><span aria-hidden="true">⌕</span><h3>조건에 맞는 기사가 없어요</h3><p>키워드, 기간 또는 의견 필터를 바꿔 보세요. Google News에 해당 기사가 수집되지 않았을 수도 있습니다.</p></div>
+    </section>
+    <footer class="page-footer">기사 검색은 백엔드에서 Google News RSS를 가져옵니다. 검색 결과는 저장하지 않으며 새로고침하면 초기화됩니다.</footer>
+  </main>
+</body>
+</html>

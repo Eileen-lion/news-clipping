@@ -1,0 +1,22 @@
+{
+  "name": "news-clipping",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.9.0"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env --env-file-if-exists=backend/.env backend/server.js",
+    "test": "node --test backend/news.test.mjs"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "express": "^5.3.0",
+    "rss-parser": "^3.13.0"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "^11.1.1"
+    }
+  }
+}
