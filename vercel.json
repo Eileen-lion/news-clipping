@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "",
+  "outputDirectory": "frontend",
+  "functions": {
+    "api/*.js": {
+      "maxDuration": 60,
+      "excludeFiles": "{.env,.env.*,backend/.env,backend/.env.*,backend/*.test.mjs}"
+    }
+  }
+}

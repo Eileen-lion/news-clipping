@@ -80,3 +80,20 @@ npm test
 ## 엑셀 다운로드
 
 검색을 완료한 뒤 **엑셀 다운로드** 버튼을 누르면 현재 의견 필터로 화면에 표시된 결과를 `.xlsx`로 받습니다. 검색 결과가 없거나 검색 중이면 버튼이 비활성화됩니다. 날짜(한국 시간), 언론사, 제목, 클릭 가능한 기사 링크, 요약, 의견, 요약 방식이 포함됩니다. 입력 조건을 바꾸더라도 새로 검색하기 전에는 마지막 검색 결과를 내보냅니다. 서버는 전달받은 결과를 메모리에서 파일로 생성하며 다시 뉴스 검색을 하지 않습니다.
+
+## Vercel 배포
+
+`vercel.json`은 `frontend`를 정적 화면 경로로 지정하고, `api/news.js`와 `api/export.js`는 기존 Express 코드를 Vercel 함수로 실행합니다. 로컬 `npm start` 방식도 유지됩니다.
+
+GitHub 저장소를 연결한 프로젝트에서 다음 설정을 확인하세요.
+
+- Root Directory: 저장소 루트 (`.`). `frontend` 또는 `backend`로 지정하지 않습니다.
+- Framework Preset: Other
+- Install Command: 기본값 (`npm install`)
+- Build Command / Output Directory: 저장소의 `vercel.json` 설정 사용
+
+최신 `main` 커밋을 배포한 뒤 Deployments에서 성공한 배포의 **Visit** 주소로 접속합니다. 이전 배포의 404 주소가 계속 보이면 최신 배포 URL 및 연결 도메인을 확인하세요.
+
+Google News 검색에는 환경변수가 필요 없습니다. 선택적 AI 분석을 사용할 때만 Vercel의 Settings → Environment Variables에 `OPENAI_API_KEY`, `ENABLE_AI_SUMMARY=true`, 필요하면 `OPENAI_MODEL`을 등록하고 재배포합니다. 로컬 `.env`는 Git과 Vercel 업로드에서 제외되며 정적 화면 폴더에도 포함되지 않습니다.
+
+[Vercel 공식 문서: Node.js 함수](https://vercel.com/docs/functions/runtimes/node-js), [정적 출력 경로 설정](https://vercel.com/docs/project-configuration/vercel-json#outputdirectory)

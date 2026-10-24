@@ -1,0 +1,13 @@
+.git/
+node_modules/
+.env
+.env.*
+backend/.env
+backend/.env.*
+backend/*.test.mjs
+*.pem
+*.key
+*.p12
+*.pfx
+*.log
+.DS_Store
