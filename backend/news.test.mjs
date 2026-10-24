@@ -61,7 +61,7 @@ test('RSS 접속 실패, HTTP 오류와 XML 파싱 실패는 검색 오류로 �
 });
 
 test('AI 키 없거나 사용 안 함이면 외부 AI 호출 없이 검색 유지', async () => {
-  for (const env of [{}, { OPENAI_API_KEY: 'test' }]) {
+  for (const env of [{}, { OPENAI_API_KEY: 'test', ENABLE_AI_SUMMARY: 'false' }]) {
     const data = collectArticles(await fetchRSS(buildRSSURL(options()), rssFetcher), options());
     await enhanceArticles(data, { env, fetcher: async () => { assert.fail('AI를 호출하면 안 됩니다.'); } });
     assert.equal(data.articles.length, 1);
@@ -75,7 +75,7 @@ test('AI 실패/잘못된 응답이면 RSS 검색 결과와 기본 요약을 유
     const previous = JSON.stringify(data.articles);
     await enhanceArticles(data, { env: { OPENAI_API_KEY: 'test', ENABLE_AI_SUMMARY: 'true' }, fetcher });
     assert.equal(JSON.stringify(data.articles), previous);
-    assert.match(data.warnings.at(-1), /기본 의견/);
+    assert.match(data.warnings.at(-1), /단어 기반/);
   }
 });
 
@@ -85,7 +85,7 @@ test('AI에는 RSS 제목/설명만 보내고 검증된 요약/의견만 적용'
     assert.equal(url, 'https://api.openai.com/v1/responses');
     const input = JSON.parse(JSON.parse(request.body).input);
     assert.deepEqual(Object.keys(input[0]), ['id', 'title', 'description']);
-    return { ok: true, json: async () => ({ status: 'completed', output: [{ content: [{ type: 'output_text', text: JSON.stringify({ articles: [{ id: 0, summary: 'RSS 기준 인공지능 교육의 성장과 개선 소식입니다.', sentiment: '긍정' }] }) }] }] }) };
+    return { ok: true, json: async () => ({ status: 'completed', output: [{ content: [{ type: 'output_text', text: JSON.stringify({ articles: [{ id: 0, summary: 'RSS 기준 인공지능 교육의 성장과 개선 소식입니다.', sentiment: '긍정', confidence: '보통', reason: '교육 분야의 성장과 개선을 전달합니다.', evidence: '인공지능 성장', insufficient: false }] }) }] }] }) };
   } });
   assert.equal(data.articles[0].summaryType, 'AI 요약 (RSS 기준)');
 });
@@ -134,4 +134,71 @@ test('엑셀은 한국어 데이터와 클릭 가능한 링크를 보존하고 �
   assert.equal(sheet.getCell('E2').value, '한글 요약');
   await assert.rejects(createExcel([]));
   await assert.rejects(createExcel([{ ...rows[0], url: 'javascript:alert(1)' }]));
+});
+
+// AI 응답을 모의로 만들어 근거 검증과 실패 시 기본 결과 보존을 확인합니다.
+const modelResponse = results => ({ ok: true, json: async () => ({ status: 'completed', output: [{ content: [{ type: 'output_text', text: JSON.stringify({ articles: results }) }] }] }) });
+const assessment = (input, extra = {}) => ({ id: input.id, summary: input.title, sentiment: '긍정', confidence: '보통', reason: '입력 내용의 개선을 근거로 판단했습니다.', evidence: input.title, insufficient: false, ...extra });
+
+test('키가 있으면 기본 활성화되며 10건을 넘는 결과도 모두 분석', async () => {
+  const data = { articles: Array.from({ length: 25 }, (_, i) => ({ title: `서비스 개선 소식 ${i}`, description: '', sentiment: '중립', analysisMethod: '단어 기반' })), warnings: [] };
+  let calls = 0;
+  let active = 0;
+  let maximum = 0;
+  await enhanceArticles(data, { env: { OPENAI_API_KEY: 'test' }, fetcher: async (_, request) => {
+    calls++;
+    active++;
+    maximum = Math.max(maximum, active);
+    await new Promise(resolve => setTimeout(resolve, 1));
+    active--;
+    return modelResponse(JSON.parse(JSON.parse(request.body).input).map(item => assessment(item)));
+  } });
+  assert.equal(calls, 3);
+  assert.ok(maximum <= 4);
+  assert.equal(data.articles.filter(a => a.analysisMethod === 'GPT 분석').length, 25);
+  assert.match(data.warnings.at(-1), /25\/25/);
+});
+
+test('RSS에 없는 근거, 중복 id, 틀린 확실성은 AI 결과로 적용하지 않음', async () => {
+  for (const extra of [{ evidence: 'RSS에 없는 문장' }, { confidence: '99%' }, { evidence: '', insufficient: false }]) {
+    const data = { articles: [{ title: '성장 둔화', description: '성장 속도가 느려지고 있다.', sentiment: '긍정', analysisMethod: '단어 기반' }], warnings: [] };
+    await enhanceArticles(data, { env: { OPENAI_API_KEY: 'test' }, fetcher: async (_, request) => modelResponse(JSON.parse(JSON.parse(request.body).input).map(item => assessment(item, extra))) });
+    assert.equal(data.articles[0].analysisMethod, '단어 기반');
+    assert.match(data.warnings.at(-1), /분석하지 못한/);
+  }
+  const data = { articles: [{ title: '기사 A' }, { title: '기사 B' }], warnings: [] };
+  await enhanceArticles(data, { env: { OPENAI_API_KEY: 'test' }, fetcher: async () => modelResponse([assessment({ id: 0, title: '기사 A' }), assessment({ id: 0, title: '기사 A' })]) });
+  assert.ok(data.articles.every(article => article.analysisMethod !== 'GPT 분석'));
+});
+
+test('정보 부족 판단은 긍정 응답이어도 중립·낮은 확실성으로 처리', async () => {
+  const data = { articles: [{ title: 'AI 발표 예정', description: '' }], warnings: [] };
+  await enhanceArticles(data, { env: { OPENAI_API_KEY: 'test' }, fetcher: async (_, request) => modelResponse(JSON.parse(JSON.parse(request.body).input).map(item => assessment(item, { insufficient: true, evidence: '', reason: '영향 정보가 없어 판단을 유보합니다.', confidence: '높음' }))) });
+  assert.equal(data.articles[0].sentiment, '중립');
+  assert.equal(data.articles[0].confidence, '낮음');
+  assert.equal(data.articles[0].insufficient, true);
+});
+
+test('한 묶음의 실패가 다른 묶음의 GPT 분석을 취소하지 않음', async () => {
+  const data = { articles: Array.from({ length: 11 }, (_, i) => ({ title: `개선 ${i}`, description: '', analysisMethod: '단어 기반' })), warnings: [] };
+  await enhanceArticles(data, { env: { OPENAI_API_KEY: 'test' }, fetcher: async (_, request) => {
+    const input = JSON.parse(JSON.parse(request.body).input);
+    if (input.length === 10) throw new Error('API timeout');
+    return modelResponse(input.map(item => assessment(item)));
+  } });
+  assert.equal(data.articles.filter(a => a.analysisMethod === 'GPT 분석').length, 1);
+  assert.match(data.warnings.join(' '), /1\/11/);
+});
+
+test('GPT 근거·확실성·판단 유보를 엑셀에도 저장', async () => {
+  const data = collectArticles(await fetchRSS(buildRSSURL(options()), rssFetcher), options());
+  Object.assign(data.articles[0], { analysisMethod: 'GPT 분석', confidence: '낮음', sentimentReason: '판단 유보', sentimentEvidence: '인공지능 성장', insufficient: true });
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(await createExcel(data.articles));
+  const sheet = workbook.worksheets[0];
+  assert.equal(sheet.getCell('H2').value, 'GPT 분석');
+  assert.equal(sheet.getCell('I2').value, '낮음');
+  assert.equal(sheet.getCell('J2').value, '판단 유보');
+  assert.equal(sheet.getCell('K2').value, '인공지능 성장');
+  assert.equal(sheet.getCell('L2').value, '예');
 });

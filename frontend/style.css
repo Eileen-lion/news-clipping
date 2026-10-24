@@ -79,6 +79,9 @@ select { width: auto; min-height: 40px; padding: 7px 30px 7px 10px; background: 
 }
 
 .summary-label { display: block; margin-top: 8px; }
+.assessment { border-top: 1px solid var(--border); margin-top: 16px; padding-top: 12px; }
+.assessment p { font-size: 12px; margin-top: 5px; }
+.assessment blockquote { border-left: 2px solid #b9d8c9; margin: 8px 0 0; padding-left: 10px; font-size: 12px; color: var(--muted); }
 
 .result-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
 .export-help { font-size: 12px; color: var(--muted); margin: 12px 0 0; }

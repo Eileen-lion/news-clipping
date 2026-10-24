@@ -71,7 +71,9 @@ export function normalizeArticle(item) {
     const description = cleanText(item.contentSnippet || item.content || item.description || '').replace(/\s+/g, ' ').trim();
     return { title, date: date.toISOString(), dateType: '기사 날짜', source, domain, url: url.href,
       description, summary: description ? description.slice(0, 280) + (description.length > 280 ? '…' : '') : `제목 기준: ${title}`,
-      summaryType: 'RSS 텍스트', sentiment: sentiment(`${title} ${description}`) };
+      summaryType: 'RSS 텍스트', sentiment: sentiment(`${title} ${description}`),
+      analysisMethod: '단어 기반', confidence: '미평가', insufficient: false,
+      sentimentReason: '일부 긍정·부정 단어를 세는 기본 추정입니다. 문맥을 충분히 반영하지 못할 수 있습니다.', sentimentEvidence: '' };
   } catch { return null; }
 }
 

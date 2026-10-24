@@ -54,7 +54,7 @@ RSS 설명에는 본문 요약 대신 제목과 관련 기사 목록만 있을 �
 
 ## 선택: AI 요약·감성분석
 
-기존 루트 `.env`의 `OPENAI_API_KEY`를 사용할 수 있습니다. 키 값은 브라우저에 노출하지 않습니다. 키만 있으면 자동으로 호출하지 않으며, 사용하려면 같은 파일에 다음 설정을 추가하고 서버를 재시작하세요.
+기존 루트 `.env`의 `OPENAI_API_KEY`를 사용할 수 있습니다. 키 값은 브라우저에 노출하지 않습니다. 키가 있으면 기본으로 GPT 분석을 사용합니다. 기존 설정이 `ENABLE_AI_SUMMARY=false`라면 true로 바꾸고 서버를 재시작하세요.
 
 ```dotenv
 OPENAI_API_KEY=자신의_키
@@ -62,9 +62,9 @@ ENABLE_AI_SUMMARY=true
 OPENAI_MODEL=gpt-4.1-mini
 ```
 
-`backend/.env`도 지원하며 같은 항목은 해당 파일의 값이 우선합니다. 기본값은 AI 사용 안 함입니다. `PORT=3000`도 선택적으로 지정할 수 있습니다.
+`backend/.env`도 지원하며 같은 항목은 해당 파일의 값이 우선합니다. 키가 없거나 `ENABLE_AI_SUMMARY=false`이면 기본 단어 추정으로 동작합니다. `PORT=3000`도 선택적으로 지정할 수 있습니다.
 
-AI를 켜면 최신 최대 10건의 제목과 RSS 설명만 OpenAI로 보내 짧은 한국어 요약과 의견을 생성합니다. 별도 API 이용 요금이 발생할 수 있습니다. 나머지 기사는 기본 RSS 방식으로 표시합니다. 키 없음·인증 오류·시간 초과·잘못된 AI 응답이 발생해도 검색 결과는 기본 처리로 반환됩니다. AI에는 기사 본문, 로컬 파일, 참고 사이트 원문을 보내지 않습니다.
+AI를 켜면 검색된 기사의 제목과 RSS 설명만 10건씩 묶어 최대 4개 요청을 동시에 보내 한국어 요약과 의견을 생성합니다. 별도 API 이용 요금이 발생할 수 있습니다. 전체 AI 처리에 30초 한도를 두며, 완료하지 못한 기사는 기본 RSS 방식으로 표시합니다. 키 없음·인증 오류·시간 초과·잘못된 AI 응답이 발생해도 검색 결과는 기본 처리로 반환됩니다. AI에는 기사 본문, 로컬 파일, 참고 사이트 원문을 보내지 않습니다.
 
 [OpenAI Docs: Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=responses)를 참고해 Responses API의 JSON 스키마 응답을 사용했습니다.
 
@@ -97,3 +97,16 @@ GitHub 저장소를 연결한 프로젝트에서 다음 설정을 확인하세�
 Google News 검색에는 환경변수가 필요 없습니다. 선택적 AI 분석을 사용할 때만 Vercel의 Settings → Environment Variables에 `OPENAI_API_KEY`, `ENABLE_AI_SUMMARY=true`, 필요하면 `OPENAI_MODEL`을 등록하고 재배포합니다. 로컬 `.env`는 Git과 Vercel 업로드에서 제외되며 정적 화면 폴더에도 포함되지 않습니다.
 
 [Vercel 공식 문서: Node.js 함수](https://vercel.com/docs/functions/runtimes/node-js), [정적 출력 경로 설정](https://vercel.com/docs/project-configuration/vercel-json#outputdirectory)
+
+
+## GPT 의견 분석 개선
+
+- 긍정·중립·부정은 기사에서 중심적으로 다루는 사건/정책/제품 등의 영향과 평가를 기준으로 판단합니다. 부정어, 비교, 인용 주체, 긍정·부정 혼재를 구분하도록 기준을 명시했습니다.
+- 각 결과에 분석 방식, 판단 이유, 근거 문구, 모델 자체 확실성(높음/보통/낮음)을 표시합니다. 확실성은 실제 정확도 확률이나 측정된 성능 수치가 아닙니다.
+- 근거 문구가 실제 입력 제목 또는 RSS 설명에 포함되어 있는지 서버가 검증합니다. 검증 실패 시 해당 묶음은 기본 추정으로 남깁니다. 이는 인용 출처 확인이며, 의미 해석의 정확성을 보증하지 않습니다.
+- 정보 부족 시 중립에 '판단 유보'를 표시하여 단순 중립 기사와 구분합니다.
+- 최신 10건 제한을 제거했습니다. 시간 한도 또는 API 오류로 처리하지 못한 건수는 화면에 표시합니다. 100건 검색은 최대 10회 API 요청이 발생합니다(RSS 결과 수에 따라 더 많을 수 있음).
+- 엑셀에도 분석 방식, 확실성, 이유, 근거, 판단 유보 여부가 함께 포함됩니다.
+- Vercel에서는 `OPENAI_API_KEY`를 Settings → Environment Variables에 등록해야 합니다. 로컬 키는 배포되지 않습니다. 기존에 `ENABLE_AI_SUMMARY=false`를 설정했다면 true로 바꾼 뒤 재배포하세요.
+
+실제 의견 분류 정확도는 정답이 있는 기사 표본으로 별도 평가해야 합니다. RSS가 제목만 반복하면 문맥에 한계가 있으며, 이 변경만으로 정확도 향상 수치를 주장하지 않습니다.

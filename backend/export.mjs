@@ -14,7 +14,12 @@ export async function createExcel(articles) {
     { header: '기사 링크', key: 'url', width: 45 },
     { header: '요약', key: 'summary', width: 70 },
     { header: '의견 (추정)', key: 'sentiment', width: 14 },
-    { header: '요약 방식', key: 'summaryType', width: 22 }
+    { header: '요약 방식', key: 'summaryType', width: 22 },
+    { header: '의견 분석 방식', key: 'analysisMethod', width: 16 },
+    { header: '판단 확실성 (모델 자체 평가)', key: 'confidence', width: 25 },
+    { header: '판단 이유', key: 'sentimentReason', width: 55 },
+    { header: '근거 문구 (RSS)', key: 'sentimentEvidence', width: 50 },
+    { header: '판단 유보', key: 'insufficient', width: 14 }
   ];
   for (const article of articles) {
     if (!article || typeof article !== 'object') throw new SearchError('기사 데이터가 올바르지 않습니다.');
@@ -32,14 +37,16 @@ export async function createExcel(articles) {
     const row = sheet.addRow({
       date: new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'medium' }).format(date),
       source: text('source'), title: text('title'), summary: text('summary'),
-      sentiment: article.sentiment, summaryType: text('summaryType'), url: url.href
+      sentiment: article.sentiment, summaryType: text('summaryType'), url: url.href,
+      ...Object.fromEntries(['analysisMethod', 'confidence', 'sentimentReason', 'sentimentEvidence'].map(key => [key, typeof article[key] === 'string' ? text(key) : ''])),
+      insufficient: article.insufficient ? '예' : '아니오'
     });
     // 제목·요약은 수식으로 처리하지 않고 일반 문자열로 저장합니다.
     row.getCell('url').value = { text: url.href, hyperlink: url.href };
     row.getCell('url').font = { color: { argb: 'FF176957' }, underline: true };
     row.alignment = { vertical: 'top', wrapText: true };
   }
-  sheet.autoFilter = { from: 'A1', to: 'G1' };
+  sheet.autoFilter = { from: 'A1', to: 'L1' };
   sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
   sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF176957' } };
   return workbook.xlsx.writeBuffer();

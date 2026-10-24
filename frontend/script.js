@@ -40,7 +40,9 @@ function renderArticles() {
     const formatted = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
     const time = makeElement('time', '', `${article.dateType} ${formatted}`);
     time.dateTime = article.date;
-    meta.append(makeElement('span', 'source', article.source), time, makeElement('span', `sentiment ${classes[article.sentiment]}`, `의견 추정 · ${article.sentiment}`));
+    const method = article.analysisMethod === 'GPT 분석' ? 'GPT 의견' : '기본 추정';
+    const opinion = article.insufficient ? '중립 (판단 유보)' : article.sentiment;
+    meta.append(makeElement('span', 'source', article.source), time, makeElement('span', `sentiment ${classes[article.sentiment]}`, `${method} · ${opinion}`));
     const link = makeElement('a', 'article-link', '기사 원문 보기 ↗');
     link.href = article.url;
     link.target = '_blank';
@@ -48,6 +50,11 @@ function renderArticles() {
     link.setAttribute('aria-label', `${article.title} 원문 보기 (새 탭)`);
     // RSS나 AI 결과를 HTML로 삽입하지 않고 텍스트로 표시합니다.
     card.append(meta, makeElement('h3', '', article.title), makeElement('p', '', article.summary), makeElement('small', 'summary-label', article.summaryType), link);
+    const assessment = makeElement('div', 'assessment');
+    if (article.analysisMethod === 'GPT 분석') assessment.append(makeElement('small', '', `GPT 판단 확실성: ${article.confidence} · 모델 자체 평가`));
+    assessment.append(makeElement('p', '', article.sentimentReason));
+    if (article.sentimentEvidence) assessment.append(makeElement('blockquote', '', `근거 문구: “${article.sentimentEvidence}”`));
+    card.append(assessment);
     list.append(card);
   });
   document.querySelector('#result-count').textContent = filtered.length;
@@ -78,7 +85,7 @@ async function search(event) {
   searched = false;
   renderArticles();
   details.textContent = '';
-  status.textContent = 'Google News RSS에서 기사를 검색하고 있습니다. 잠시 기다려 주세요.';
+  status.textContent = '뉴스 검색과 GPT 의견 분석을 진행하고 있습니다. 최대 45초 정도 걸릴 수 있습니다.';
   setLoading(true);
   try {
     if (location.protocol === 'file:') throw new Error('npm start로 서버를 실행한 뒤 http://localhost:3000에서 접속해 주세요.');
