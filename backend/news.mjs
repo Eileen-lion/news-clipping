@@ -38,14 +38,14 @@ export function sentiment(text) {
 }
 
 export function buildRSSURL({ keywords, start, end }) {
-  const or = values => values.length === 1 ? values[0] : `(${values.join(' OR ')})`;
   // Google의 날짜 경계와 한국 시간 차이로 하루 검색이 누락되지 않도록
   // 시작일 하루 전부터 받아 온 뒤 한국 시간으로 정확히 걸러냅니다.
   const previousDay = new Date(`${start}T00:00:00Z`);
   previousDay.setUTCDate(previousDay.getUTCDate() - 1);
   const nextDay = new Date(`${end}T00:00:00Z`);
   nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-  const keywordQuery = or(keywords.map(word => `"${word.replace(/["\\]/g, ' ').trim()}"`));
+  // 따옴표로 감싼 키워드를 공백으로 연결하면 모두 포함하는 AND 검색입니다.
+  const keywordQuery = keywords.map(word => `"${word.replace(/["\\]/g, ' ').trim()}"`).join(' ');
   const q = [keywordQuery, `after:${previousDay.toISOString().slice(0, 10)}`, `before:${nextDay.toISOString().slice(0, 10)}`].filter(Boolean).join(' ');
   const url = new URL('https://news.google.com/rss/search');
   url.search = new URLSearchParams({ q, hl: 'ko', gl: 'KR', ceid: 'KR:ko' });
@@ -77,11 +77,15 @@ export function normalizeArticle(item) {
   } catch { return null; }
 }
 
-export function collectArticles(feed, { startTime, endTime }) {
+export function collectArticles(feed, { startTime, endTime, keywords }) {
+  const normalize = text => text.normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim();
   const unique = new Map();
   for (const item of feed.items || []) {
     const article = normalizeArticle(item);
     if (!article) continue;
+    // RSS에도 모든 키워드가 있는지 확인해 일부만 일치하는 결과를 제외합니다.
+    const text = normalize(`${article.title} ${article.description}`);
+    if (!keywords.every(keyword => text.includes(normalize(keyword)))) continue;
     const date = new Date(article.date);
     if (date < startTime || date > endTime) continue;
     unique.set(article.url, article);

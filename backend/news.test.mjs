@@ -15,11 +15,11 @@ const xml = `<?xml version="1.0"?><rss version="2.0"><channel><title>뉴스 검�
 </channel></rss>`;
 const rssFetcher = async () => ({ ok: true, text: async () => xml });
 
-test('한글 OR 키워드와 넉넉한 날짜 경계를 RSS q에 반영', () => {
+test('한글 AND 키워드와 넉넉한 날짜 경계를 RSS q에 반영', () => {
   const url = buildRSSURL(validateSearch(params({ keyword: '인공지능,환경' })));
   assert.equal(url.origin, 'https://news.google.com');
   assert.equal(url.pathname, '/rss/search');
-  assert.equal(url.searchParams.get('q'), '("인공지능" OR "환경") after:2025-12-31 before:2026-01-03');
+  assert.equal(url.searchParams.get('q'), '"인공지능" "환경" after:2025-12-31 before:2026-01-03');
   assert.equal(url.searchParams.get('ceid'), 'KR:ko');
   assert.equal(url.searchParams.get('hl'), 'ko');
   assert.equal(url.searchParams.get('gl'), 'KR');
@@ -117,8 +117,8 @@ test('Express API는 JSON 결과를 제공하고 비공개 파일은 차단', as
 test('하루 검색은 한국 시간 00:00:00부터 23:59:59.999까지 포함', () => {
   const range = validateSearch(params({ from: '2026-01-02', to: '2026-01-02' }));
   assert.equal(buildRSSURL(range).searchParams.get('q'), '"인공지능" after:2026-01-01 before:2026-01-03');
-  const items = ['2026-01-01T14:59:59.999Z', '2026-01-01T15:00:00.000Z', '2026-01-02T14:59:59.999Z', '2026-01-02T15:00:00.000Z'].map((pubDate, i) => ({ title: `기사 ${i}`, pubDate, link: `https://example.com/${i}` }));
-  assert.deepEqual(collectArticles({ items }, range).articles.map(a => a.title), ['기사 2', '기사 1']);
+  const items = ['2026-01-01T14:59:59.999Z', '2026-01-01T15:00:00.000Z', '2026-01-02T14:59:59.999Z', '2026-01-02T15:00:00.000Z'].map((pubDate, i) => ({ title: `인공지능 기사 ${i}`, pubDate, link: `https://example.com/${i}` }));
+  assert.deepEqual(collectArticles({ items }, range).articles.map(a => a.title), ['인공지능 기사 2', '인공지능 기사 1']);
 });
 
 test('엑셀은 한국어 데이터와 클릭 가능한 링크를 보존하고 제목을 수식으로 실행하지 않음', async () => {
@@ -201,4 +201,17 @@ test('GPT 근거·확실성·판단 유보를 엑셀에도 저장', async () => 
   assert.equal(sheet.getCell('J2').value, '판단 유보');
   assert.equal(sheet.getCell('K2').value, '인공지능 성장');
   assert.equal(sheet.getCell('L2').value, '예');
+});
+
+
+test('쉼표로 구분한 키워드 모두를 포함한 RSS 기사만 표시', () => {
+  const range = validateSearch(params({ keyword: '인공지능,환경' }));
+  const items = [
+    { title: '인공지능과 환경', description: '' },
+    { title: '인공지능 소식', description: '환경 개선 연구' },
+    { title: '인공지능 소식', description: '교육 연구' },
+    { title: '환경 소식', description: '지역 소식' }
+  ].map((item, i) => ({ ...item, pubDate: '2026-01-02T03:00:00Z', link: `https://example.com/and/${i}` }));
+  const results = collectArticles({ items }, range).articles;
+  assert.deepEqual(results.map(a => a.url), ['https://example.com/and/0', 'https://example.com/and/1']);
 });
